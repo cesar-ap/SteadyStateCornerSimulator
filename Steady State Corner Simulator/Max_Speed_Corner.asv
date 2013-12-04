@@ -1,0 +1,43 @@
+function Vxmax = Max_Speed_Corner(Fy, Total_Mass, g)
+%%%%%%%%%%%%%%%%
+% Section_name %
+%%%%%%%%%%%%%%%%
+%--------------------------------------------------------------------------
+%INPUTS
+    samples=500;
+    radious = linspace (0,samples,samples); % array containing different radious corner [m]
+    Vx = zeros(1,samples); % empty array for speed
+    yaw_v = zeros(1,samples); % empty array for yaw_velocity
+    Vxmax = 0; % variable to store the Maximum Speed
+    ay = (Fy(1,1) + Fy(1,2) + Fy(2,1) + Fy(2,2)) / (Total_Mass * g); % average lateral force of the tires
+%--------------------------------------------------------------------------
+%CALCULATIONS
+    for i = 1:length(radious)
+        Vx(i) = sqrt(ay * radious(i)) / 3.6; % Km/h
+        if Vx(i) > Vxmax
+            Vxmax = Vx(i);
+        end
+        yaw_v(i) = ay / Vx(i); % Yaw Velocity
+    end
+    
+    yaw_m = a * (Fy(1,1) + Fy(1,2)) - b * (Fy(2,1) + Fy(2,2));
+    
+
+%--------------------------------------------------------------------------
+%OUTPUTS
+    fig1 = figure;
+    set(fig1,'Name','Corner Speed','NumberTitle','off')
+    plot (Vx, radious);
+    grid on;
+    xlabel('Linear velocity [Km/h]');
+    ylabel('Corner radious [m]');
+    
+    fig2 = figure;
+    set(fig2,'Name','Yaw Velocity','NumberTitle','off')
+    plot (yaw_v, radious);
+    grid on;
+    xlabel('Yaw Velocity [Km/h]');
+    ylabel('Corner radious [m]');    
+    
+    
+%--------------------------------------------------------------------------

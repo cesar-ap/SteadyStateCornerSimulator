@@ -1,0 +1,18 @@
+%%%%%%%%%%%%%%%
+% Static load %
+%%%%%%%%%%%%%%%
+
+function [Fz_static] = Static_Load(Total_Mass, Weight_distribution)
+%--------------------------------------------------------------------------
+%INPUTS
+%--------------------------------------------------------------------------
+%CALCULATIONS
+    Fzfl = (Total_Mass * Weight_distribution) / 2;
+    Fzfr = (Total_Mass * Weight_distribution) / 2;
+    Fzrr = Total_Mass * (1 - Weight_distribution) / 2;
+    Fzrl = Total_Mass * (1 - Weight_distribution) / 2;
+%--------------------------------------------------------------------------
+%OUTPUTS
+    Fz_static = [Fzfl, Fzfr, Fzrr, Fzrl];
+end
+%--------------------------------------------------------------------------

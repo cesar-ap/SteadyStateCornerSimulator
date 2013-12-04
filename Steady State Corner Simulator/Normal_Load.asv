@@ -1,0 +1,32 @@
+%%%%%%%%%%%%%%%
+% Normal Load %
+%%%%%%%%%%%%%%%
+
+function [Fz] = Normal_Load (Fz_static, LT_total_f, LT_total_r, ay, g)
+%--------------------------------------------------------------------------
+%INPUTS
+    Fzfl = Fz_static(1,1) * g; %N
+    Fzfr = Fz_static(1,2) * g; %N
+    Fzrl = Fz_static(2,1) * g; %N
+    Fzrr = Fz_static(2,2) * g; %N
+%--------------------------------------------------------------------------
+%CALCULATIONS
+    if ay > 0:
+        % Left turn
+        Fzfl = Fzfl - (LT_total_f / 2); %N
+        Fzfr = Fzfr + (LT_total_f / 2); %N
+        Fzrl = Fzrl - (LT_total_r / 2); %N
+        Fzrr = Fzrr + (LT_total_r / 2);  %N       
+    else
+        % Right turn
+        Fzfl = Fzfl + (LT_total_f / 2); %N
+        Fzfr = Fzfr - (LT_total_f / 2); %N
+        Fzrl = Fzrl + (LT_total_r / 2); %N
+        Fzrr = Fzrr - (LT_total_r / 2);  %N        
+    end
+    
+%--------------------------------------------------------------------------
+%OUTPUTS
+    Fz = [Fzfl Fzfr; Fzrl Fzrr]; %N
+end
+%--------------------------------------------------------------------------

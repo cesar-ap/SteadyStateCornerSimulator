@@ -1,0 +1,20 @@
+%%%%%%%%%%%%%%%%%%%%%%
+% Third Magic Number %
+%%%%%%%%%%%%%%%%%%%%%%
+
+function []=Third_Magic_Number()
+%--------------------------------------------------------------------------
+%INPUTS
+%--------------------------------------------------------------------------
+%CALCULATIONS
+ART_tire_f = track_f^2 * tan(roll_angle_00) * K_tire_f / 2; %Nm
+ART_tire_r = track_r^2 * tan(roll_angle_00) * K_tire_r / 2; %Nm
+
+ART_total_f = ART_front * ART_tire_f / (ART_front + ART_tire_f); %Nm
+ART_total_r = ART_rear * ART_tire_r / (ART_rear + ART_tire_r); %Nm
+AR_stiffness_f = ART_total_f; %Nm/deg
+AR_stiffness_r = ART_total_r; %Nm/deg
+%--------------------------------------------------------------------------
+%OUTPUTS
+AR_stiffness_d_2 = ART_total_f / (ART_total_f + ART_total_r); %
+%--------------------------------------------------------------------------

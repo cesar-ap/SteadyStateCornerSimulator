@@ -1,0 +1,267 @@
+% Performance Simulator v0.1
+% Date: 25-11-2013
+% Author: César Álvarez Porras (www.cesar-ap.com)
+
+% Script: Calculates maximum lateral force for different values of Weight
+% distribution, K Springs and K ARB.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%                                                                     %%%
+%%%                         Variables Declaration                       %%%
+%%%                                                                     %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Physics constants
+g = 9.81;
+pi = 3.14159;
+
+% Scenario
+ay = 1.9; % g
+speed = 120; % Km/h
+
+% Vehicle
+Total_Mass = 1200;% Kg
+US_Mass_f = 40;% Kg
+US_Mass_r = 46;% Kg
+Wheelbase = 2.890;% m
+Weight_distribution = [0.42, 0.43, 0.44, 0.45, 0.46, 0.47, 0.48, 0.49, 0.5, 0.51, 0.52, 0.53, 0.54, 0.55]; %
+track_f = 1.698;% m
+track_r = 1.620;% m
+hcg = 0.45;% m
+hrf = 0;% m
+hrr = 0;% m
+huf = 0.33;% m
+hur = 0.355;% m
+
+% Suspension
+MR_wheel_spring_f = 1; %
+MR_wheel_spring_r = 1; %
+MR_ARB_f = 0.8; %
+MR_ARB_r = 0.8; %
+K_spring_F = [507500, 520000, 545000, 565000, 595000, 600000, 615000, 625000];% Nm
+K_spring_R = [507500, 520000, 545000, 565000, 595000, 600000, 615000, 625000];% Nm
+K_ARB_F = [325000, 340000, 360000, 380000, 400000];% Nm
+K_ARB_R = [325000, 340000, 360000, 380000, 400000];% Nm
+
+% Aerodynamics
+air_temp = 23;% C degrees
+atm_p = 1000;% mbar
+downforce_coef = 1.6;% average value from downforce map
+drag_coef = 0.835;% at 20 FRH and 40 RRH
+Area = [1.175, 1.275, 1.375, 1.475, 1.575, 1.675];% m^2
+
+%Tire model
+K_tire_f = 95000;% Nm
+K_tire_r = 95000;% Nm
+% K_tire_f = 331800;% Nm
+% K_tire_r = 417725;% Nm
+c2=[-0.00022, -0.00027];
+c1=[2.1, 2.3];
+c0=[100, 250];
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%                                                                     %%%
+%%%                               Execution                             %%%
+%%%                                                                     %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Variables to perform the execution
+number_of_iterations = length(Weight_distribution) * length(K_spring_F) * length(K_spring_R)...
+    * length(K_ARB_F) * length(K_ARB_R);
+z=0; % General pointer
+Fz_static = zeros(2,2,number_of_iterations); % Empty array of zeros for output Fz_static
+Fz = zeros(2,2,number_of_iterations); % Empty array of zeros for output Fz
+Fz_downforce = zeros(1,number_of_iterations); % Empty array of zeros for output Fz Downforce
+Fy = zeros(2,2,number_of_iterations); % Empty array of zeros for output Fy
+Fy_combined = zeros(1,number_of_iterations); % Empty array of zeros for output Combined Fy
+yaw_moment = zeros(1,number_of_iterations); % Empty array of zeros for output Yaw Moment
+
+% Optimum Input Variables
+Weight_d_opt = 0;
+K_spring_f_opt = 0;
+K_spring_r_opt = 0;
+K_ARB_f_opt = 0;
+K_ARB_r_opt = 0;
+% Optimum Output Variables
+Fz_static_opt = zeros(2,2);
+Fz_downforce_opt = 0;
+Fz_opt = zeros(2,2);
+Fy_opt = zeros(2,2);
+yaw_moment_opt = 0;
+Fy_combined_opt = 0;
+area_opt = 0;
+
+
+for i=1:numel(Weight_distribution)
+    Weight_d = Weight_distribution(i); % Current run execution´s Weight distribution
+    
+    % Initial calculations
+    US_Mass = US_Mass_f + US_Mass_r; % total US Mass
+    S_Mass = Total_Mass - US_Mass; % total S Mass
+    hs = (Total_Mass * hcg - US_Mass * (huf + hur)/2) / S_Mass; % S Mass CG height
+    Total_Mass_f = Total_Mass * Weight_d; %Kg
+    Total_Mass_r = Total_Mass * (1 - Weight_d); %Kg 
+    S_Mass_f = Total_Mass_f - US_Mass_f; %Kg
+    S_Mass_r = Total_Mass_r - US_Mass_r; %Kg
+    a = Total_Mass_r / Total_Mass * Wheelbase; %m
+    b = Total_Mass_f / Total_Mass * Wheelbase; %m
+
+    % Calculate the Static Loads
+    Fz_static_i = Static_Load(Total_Mass, Weight_d, g);
+    %Fz_static
+    
+    for j=1:numel(K_spring_F)
+        K_spring_f = K_spring_F(j); % Current run execution's K Spring Front
+        for k=1:numel(K_spring_R)
+            K_spring_r = K_spring_R(k); % Current run execution´s K Spring Rear
+            for l=1:numel(K_ARB_F)
+                K_ARB_f = K_ARB_F(l); % Current run execution's K ARB Front
+                for m=1:numel(K_ARB_R)
+                    K_ARB_r = K_ARB_R(m); % Current run execution's ARB Rear
+                    for n=1:numel(Area)
+                        area = Area(n); % Current run execution's Frontal Area
+                        
+                        z=z+1; % Increase General Index Z
+                        if z > number_of_iterations
+                            fprintf ('General Index z Out of boundaries: z = %d\n',z);
+                        end
+
+                        % Calculate the initial AR Stiffness Distribution and the Roll Gradient
+                        [roll_gradient, AR_stiff_d_1, ha, ART_front, ART_rear] = Anti_Roll_Torque(...
+                            hs, a, b, hrf, hrr, Wheelbase, track_f, track_r, K_spring_f, K_spring_r...
+                            , K_ARB_f, K_ARB_r, MR_wheel_spring_f, MR_wheel_spring_r, MR_ARB_f...
+                            , MR_ARB_r, S_Mass, ay, g);
+                        %AR_stiff_d_1 % 1st Magic Number (1)
+
+                        % Calculate the Load Transfer Elastic distribution and total Load Transfer
+                        [LT_e_distribution, LT_distribution_1] = Load_Transfer(...
+                            S_Mass_f, S_Mass_r, US_Mass_f, US_Mass_r, AR_stiff_d_1 , huf, hur, hrf...
+                            , hrr, hs, ay, track_f, track_r);
+                        %LT_e_distribution % 1st Magic Number (2)
+                        %LT_distribution_1 % 2nd Magic Number 
+
+                        % Calculate the AR Stiffness Distribution considering the tire stiffness
+                        AR_stiff_d_2 = Third_Magic_Number(track_f, track_r, K_tire_f, K_tire_r, ART_front, ART_rear);
+                        %AR_stiff_d_2 % 3rd Magic Number (1)
+
+                        % Re calculate the total Load Transfer considering the tire stiffness
+                        [LT_e_distribution, LT_distribution_2, LT_total_f, LT_total_r] = Load_Transfer(...
+                            S_Mass_f, S_Mass_r, US_Mass_f, US_Mass_r, AR_stiff_d_2 , huf, hur, hrf...
+                            , hrr, hs, ay, track_f, track_r);
+                        %LT_distribution_2 % 3rd Magic Number (2)
+                        %LT_total_f
+                        %LT_total_r
+
+                        % Calculate the Normal Load on each corner
+                        Fz_i = Normal_Load(Fz_static_i, LT_total_f, LT_total_r, ay, g);
+                        %Fz % Corner Loads
+
+                        % Calculate the Aerodynamic downforce
+                        Fz_downforce_i = Aerodynamics(air_t, atm_p, downforce_coef, area, speed);                    
+
+                        % Calculate the Lateral Force from the tires based on the Normal load
+                        Fz_i = Fz_i + Fz_downforce_i; % Add the Downforce to the Normal load
+                        Fy_i = Tire_Model(c2, c1, c0, g, Fz_i);
+                        %Fy % Lateral Force on each tire
+
+                        % Final calculations
+                        yaw_m = a * (Fy_i(1,1) + Fy_i(1,2)) - b * (Fy_i(2,1) + Fy_i(2,2));
+
+                        Fz_static(:,:,z) = Fz_static_i; % Current run execution´s Static Load
+                        Fz_downforce(z) = Fz_downforce_i; % Current run execution's Downforce                    
+                        Fz(:,:,z) = Fz_i; % Current run execution´s Normal Load
+                        Fy(:,:,z) = Fy_i; % Current run execution´s Lateral Force
+                        yaw_moment(z) = yaw_m; % Current run execution´s Yaw Moment
+
+                        % Command line information:
+    %                     fprintf ('The Vertical Load static is: %d\n',Fz_static(:,:,z));
+    %                     fprintf ('The Downforce is: %d\n', Fz_downforce(i));
+    %                     fprintf ('The Total Vertical Load is: %d\n',Fz(:,:,z));
+    %                     fprintf ('And the Lateral Force is: %d\n',Fy(:,:,z));
+    %                     fprintf ('The Yaw Moment is: %d\n',yaw_moment(z));
+    %                     fprintf ('//---------------------------------//\n\n');
+
+                        % Calculate the combined Fy and its input values
+                        Fy_combined(z) = Fy(1,1,z) + Fy(1,2,z) + Fy(2,1,z) + Fy(2,2,z);
+                        if Fy_combined(z) > Fy_combined_opt
+                            % Optimum Input Variables
+                            Weight_d_opt = Weight_d;
+                            K_spring_f_opt = K_spring_f;
+                            K_spring_r_opt = K_spring_r;
+                            K_ARB_f_opt = K_ARB_f;
+                            K_ARB_r_opt = K_ARB_r;
+                            % Optimum Output Variables
+                            Fz_static_opt(:,:) = Fz_static(:,:,z);
+                            Fz_downforce_opt = Fz_downforce(z);
+                            Fz_opt(:,:) = Fz(:,:,z);
+                            Fy_opt(:,:) = Fy(:,:,z);
+                            yaw_moment_opt = yaw_moment(z);
+                            Fy_combined_opt = Fy_combined(z);
+                            iteration=z;
+                        end
+                        
+                    end % Close Fronta Area
+                end % Close K ARB R
+            end % Close K ARB F
+        end % Close K Spring R
+    end % Close K Spring F
+end % Close Weight_d
+
+fprintf ('The maximum Fy combined @ %d Km/h is:\n %d on iteration number %d\n',speed, Fy_combined_opt, iteration);
+fprintf ('For the following setup options:\n - Weight distribution: %d\n - K Spring (F/R): %d / %d\n - K ARB (F/R): %d / %d\n',Weight_d_opt, K_spring_f_opt, K_spring_r_opt, K_ARB_f_opt, K_ARB_r_opt);
+%fprintf ('The Static Normal Load is:\n %d\n', Fz_static_opt);
+%fprintf ('The Normal Load is:\n %d\n', Fz_opt);
+%fprintf ('The Lateral Force is:\n %d\n', Fy_opt);
+fprintf ('The Downforce is: %d\n', Fz_downforce_opt);
+Fz_static_opt
+Fz_opt
+Fy_opt
+fprintf ('The Yaw Moment is: %d\n',yaw_moment_opt);
+
+% Plots Fy Fz points over Tire Response Graphs
+Tire_Response(c2, c1, c0, g, Fz_opt);
+
+number_of_iterations = linspace(1,number_of_iterations,number_of_iterations);
+% % Plotting Yaw Moment against Number of iterations
+% set(figure,'Name','Yaw Moment','NumberTitle','off');
+% scatter(number_of_iterations, yaw_moment,6,'b');
+% xlabel('Num Iterations');
+% ylabel('Yaw Moment');
+% grid on;
+
+% Plotting Fy combined against Number of iterations
+set(figure,'Name','Lateral Force Combined','NumberTitle','off');
+scatter(number_of_iterations, Fy_combined,6,'r');
+xlabel('Num Iterations');
+ylabel('Lateral Force Combined [N]');
+grid on;
+
+% Plotting Lateral Force against Weight Distribution
+set(figure,'Name','Lateral Force','NumberTitle','off');
+subplot(2,2,1);
+scatter(number_of_iterations, Fy(1,1,:),6,'r');
+xlabel('Num Iterations');
+ylabel('Lateral Force FL [N]');
+grid on;
+subplot(2,2,2);
+scatter(number_of_iterations, Fy(1,2,:),6,'g');
+xlabel('Num Iterations');
+ylabel('Lateral Force FR [N]');
+grid on;
+subplot(2,2,3);
+scatter(number_of_iterations, Fy(2,1,:),6,'b');
+xlabel('Num Iterations');
+ylabel('Lateral Force RL [N]');
+grid on;
+subplot(2,2,4);
+scatter(number_of_iterations, Fy(2,2,:),6,'y');
+xlabel('Num Iterations');
+ylabel('Lateral Force RR [N]');
+grid on;
